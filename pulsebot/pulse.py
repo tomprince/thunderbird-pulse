@@ -3,11 +3,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import socket
-import threading
 from kombu import Exchange
 from mozillapulse.config import PulseConfiguration
 from mozillapulse.consumers import GenericConsumer
-from Queue import Queue, Empty
 
 
 class PulseConsumer(GenericConsumer):
@@ -19,8 +17,6 @@ class PulseConsumer(GenericConsumer):
 class PulseListener(object):
     def __init__(self, user=None, password=None, exchange=None, topic='#',
                  applabel=None):
-        self.shutting_down = False
-        assert exchange
         self.exchange = exchange
         self.topic = topic
 
@@ -40,16 +36,8 @@ class PulseListener(object):
             'password': password,
         }
 
-        self.queue = Queue(42)
-        self.listener_thread = threading.Thread(target=self.pulse_listener)
-        self.listener_thread.start()
-
-    def pulse_listener(self):
-        def got_message(data, message):
-            message.ack()
-            self.queue.put(data)
-
-        while not self.shutting_down:
+    def pulse_listener(self, callback, timeout):
+        while True:
             # Connect to pulse
             pulse = PulseConsumer(
                 exchange=self.exchange, applabel=self.applabel, durable=True,
@@ -58,7 +46,7 @@ class PulseListener(object):
             # Tell pulse that you want to listen for all messages ('#' is
             # everything) and give a function to call every time there is a
             # message
-            pulse.configure(topic=[self.topic], callback=got_message)
+            pulse.configure(topic=[self.topic], callback=callback)
 
             # Manually do the work of pulse.listen() so as to be able to
             # cleanly get out of it if necessary.
@@ -71,29 +59,15 @@ class PulseListener(object):
             consumer.queues[0].queue_bind()
 
             with consumer:
-                while not self.shutting_down:
+                while True:
                     try:
-                        pulse.connection.drain_events(timeout=1)
+                        pulse.connection.drain_events(timeout=60)
                     except socket.timeout:
                         pass
+                        timeout()
                     except Exception:
                         # If we failed for some other reason than the timeout,
                         # cleanup and create a new connection.
                         break
 
             pulse.disconnect()
-
-    def shutdown(self):
-        if not self.shutting_down:
-            self.shutting_down = True
-            self.listener_thread.join()
-
-    def __iter__(self):
-        while not self.shutting_down:
-            try:
-                data = self.queue.get(timeout=1)
-            except Empty:
-                if not self.listener_thread.is_alive():
-                    self.shutdown()
-                continue
-            yield data
