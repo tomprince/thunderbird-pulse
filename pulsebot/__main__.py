@@ -52,6 +52,8 @@ if __name__ == "__main__":
     else:
         message = "No nightly builds to report."
 
+    message += "\n\n--\nSent by https://github.com/tomprince/thunderbird-pulse\n"
+
     requests.post(
         "https://api.mailgun.net/v3/{}/messages".format(environ.get("MAILGUN_DOMAIN")),
         auth=("api", environ.get("MAILGUN_APIKEY")),
