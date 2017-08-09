@@ -5,7 +5,7 @@
 
 from __future__ import unicode_literals, print_function
 
-from pulse import PulseListener
+from .pulse import PulseListener
 import requests
 
 
