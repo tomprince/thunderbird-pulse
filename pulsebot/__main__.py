@@ -6,6 +6,7 @@
 from __future__ import unicode_literals, print_function
 
 from pulse import PulseListener
+import requests
 
 
 if __name__ == "__main__":
@@ -19,41 +20,47 @@ if __name__ == "__main__":
         applabel='tp-test',
     )
 
-    buildid = None
-    successes = []
-    failures = {}
+    builds = {}
     messages = []
 
-    try:
+    def callback(data, message):
+        messages.append(message)
+        payload = data['payload']
+        if 'l10n' in payload['logurl']:
+            build = builds.setdefault(
+                payload['buildid'],
+                {'successes': [], 'failures': {}},
+            )
+            if payload['status'] == 0:
+                build['successes'].append(payload['locale'])
+            else:
+                build['failures'][payload['locale']] = payload['logurl']
 
-        def report():
-            global buildid, failures, successes, messages
-            print('BuildID: {}'.format(buildid))
-            print('Success: {}'.format(', '.join(successes)))
-            print('Failures:')
-            for locale, url in failures:
-                print('{}: {}'.format(locale, url))
-            print()
+    build_reports = []
+    for buildid, data in builds.items():
+        lines = []
+        lines.append('BuildID: {}\n'.format(buildid))
+        lines.append('Success: {}\n'.format(', '.join(data['successes'])))
+        lines.append('Failures:')
+        for locale, url in data['failures']:
+            lines.append('{}: {}\n'.format(locale, url))
+        build_reports.append("\n".join(lines))
 
-            buildid = "{} (repeat)".format(buildid)
-            successes = []
-            failures = {}
-            for message in messages:
-                message.ack()
-            messages = []
+    if build_reports:
+        message = "\n".join(build_reports)
+    else:
+        message = "No nightly builds to report."
 
-        def callback(data, message):
-            global buildid
-            payload = data['payload']
-            if 'l10n' in payload['logurl']:
-                if buildid != payload['buildid']:
-                    report()
-                    buildid = payload['buildid']
-                if payload['status'] == 0:
-                    successes.append(payload['locale'])
-                else:
-                    failures[payload['locale']] = payload['logurl']
-        pulse.pulse_listener(callback, timeout=report)
-    except KeyboardInterrupt:
-        pass
+    requests.post(
+        "https://api.mailgun.net/v3/{}/messages".format(environ.get("MAILGUN_DOMAIN")),
+        auth=("api", environ.get("MAILGUN_APIKEY")),
+        data={"from": environ.get("MAILGUN_LIST"),
+              "to": [environ.get("MAILGUN_LIST")],
+              "subject": "Nightly L10N Repack",
+              "text": message})
+
+    for message in messages:
+        message.ack()
+    pulse.drain(callback)
+
     exit(0)
