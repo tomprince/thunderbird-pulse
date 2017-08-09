@@ -7,6 +7,7 @@ from __future__ import unicode_literals, print_function
 
 from .pulse import PulseListener
 import requests
+from datetime import date
 
 
 if __name__ == "__main__":
@@ -56,7 +57,9 @@ if __name__ == "__main__":
         auth=("api", environ.get("MAILGUN_APIKEY")),
         data={"from": environ.get("MAILGUN_LIST"),
               "to": [environ.get("MAILGUN_LIST")],
-              "subject": "Nightly L10N Repack",
+              "subject": "Nightly L10N Repack {}".format(
+                  date.today().isoformat(),
+              ),
               "text": message})
 
     for message in messages:
