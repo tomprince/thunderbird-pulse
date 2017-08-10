@@ -22,23 +22,32 @@ class PulseListener(object):
             'password': password,
         }
 
-    def drain(self, callback):
+    def drain(self):
+        messages = []
+
         # Connect to pulse
-        pulse = PulseConsumer(
+        self.pulse = PulseConsumer(
             exchange=self.exchange, applabel=self.applabel, durable=True,
             **self.auth)
 
         # Tell pulse that you want to listen for all messages ('#' is
         # everything) and give a function to call every time there is a
         # message
-        pulse.configure(topic=[self.topic], callback=callback)
+        self.pulse.configure(topic=[self.topic], callback=messages.append)
 
         # Manually do the work of pulse.listen() so as to be able to
         # cleanly get out of it if necessary.
-        consumer = pulse._build_consumer(callback=callback)
+        consumer = self.pulse._build_consumer()
 
         with consumer:
-            pulse.connection.drain_events(timeout=60)
+            self.pulse.connection.drain_events(timeout=60)
 
-    def disconnect():
-        pulse.disconnect()
+        self.messages = [message for (_, message) in messages]
+        return [data for (data, _) in messages]
+
+    def ack(self):
+        for message in self.messages:
+            message.ack()
+
+    def disconnect(self):
+        self.pulse.disconnect()
