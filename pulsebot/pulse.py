@@ -40,4 +40,5 @@ class PulseListener(object):
         with consumer:
             pulse.connection.drain_events(timeout=60)
 
+    def disconnect():
         pulse.disconnect()

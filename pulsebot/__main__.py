@@ -69,4 +69,6 @@ if __name__ == "__main__":
     for message in messages:
         message.ack()
 
+    pulse.disconnect()
+
     exit(0)
