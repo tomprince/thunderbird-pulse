@@ -26,8 +26,8 @@ class PulseListener(object):
         data = []
         self.messages = []
 
-        def callback(data, message):
-            data.append(data)
+        def callback(datum, message):
+            data.append(datum)
             self.messages.append(message)
 
         # Connect to pulse
