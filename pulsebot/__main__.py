@@ -37,6 +37,8 @@ if __name__ == "__main__":
             else:
                 build['failures'][payload['locale']] = payload['logurl']
 
+    pulse.drain(callback)
+
     build_reports = []
     for buildid, data in builds.items():
         lines = []
@@ -66,6 +68,5 @@ if __name__ == "__main__":
 
     for message in messages:
         message.ack()
-    pulse.drain(callback)
 
     exit(0)
