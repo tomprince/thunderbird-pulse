@@ -29,11 +29,12 @@ def process_messages(messages):
 def generate_report(builds):
     build_reports = []
     for buildid, data in builds.items():
+        successes = ', '.join(sorted(data['successes']))
         lines = []
         lines.append('BuildID: {}\n'.format(buildid))
-        lines.append('Success: {}\n'.format(', '.join(data['successes'])))
+        lines.append('Success: {}\n'.format(successes))
         lines.append('Failures:')
-        for locale, url in data['failures']:
+        for locale, url in sorted(data['failures'].items()):
             lines.append('{}: {}\n'.format(locale, url))
         build_reports.append("\n".join(lines))
 
