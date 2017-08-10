@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import socket
 from mozillapulse.config import PulseConfiguration
 from mozillapulse.consumers import GenericConsumer
 
@@ -45,7 +46,11 @@ class PulseListener(object):
         consumer = self.pulse._build_consumer()
 
         with consumer:
-            self.pulse.connection.drain_events(timeout=60)
+            try:
+                while True:
+                    self.pulse.connection.drain_events(timeout=10)
+            except socket.timeout:
+                pass
 
         return data
 
