@@ -8,34 +8,44 @@ from __future__ import unicode_literals, print_function
 from .pulse import PulseListener
 import requests
 from datetime import date
+from collections import defaultdict
 
 
 def process_messages(messages):
-    builds = {}
+    builds = defaultdict(
+        lambda: {
+            'successes': defaultdict(dict),
+            'failures': defaultdict(dict),
+            'warnings': defaultdict(dict),
+        }
+    )
     for data in messages:
         payload = data['payload']
-        if 'l10n' in payload['logurl']:
-            build = builds.setdefault(
-                payload['buildid'],
-                {'successes': [], 'failures': {}},
-            )
-            if payload['status'] == 0:
-                build['successes'].append(payload['locale'])
-            else:
-                build['failures'][payload['locale']] = payload['logurl']
+        logurl = payload['logurl']
+        if 'l10n' in logurl:
+            build = builds[payload['buildid']]
+            locale = payload['locale']
+            status = {0: 'success', 1: 'warnings'}.get(
+                payload['status'], 'failures')
+            build[status][locale][payload['platform']] = logurl
     return builds
 
 
 def generate_report(builds):
     build_reports = []
     for buildid, data in builds.items():
-        successes = ', '.join(sorted(data['successes']))
         lines = []
-        lines.append('BuildID: {}\n'.format(buildid))
-        lines.append('Success: {}\n'.format(successes))
-        lines.append('Failures:')
-        for locale, url in sorted(data['failures'].items()):
-            lines.append('{}: {}\n'.format(locale, url))
+        lines.append('<p>BuildID: {}\n'.format(buildid))
+        for status in ('failures', 'warnings', 'successes'):
+            lines.append('<p>{}:\n'.format(status.title()))
+            for locale, platforms in sorted(data[status].items()):
+                results = []
+                for platform, url in sorted(platforms.items()):
+                    results.append(
+                        '<a href="{url}">{platform}</a>'.format(
+                            platform=platform, url=url))
+                lines.append("{}({})".format(locale, ", ".join(results)))
+
         build_reports.append("\n".join(lines))
 
     return build_reports
@@ -43,14 +53,16 @@ def generate_report(builds):
 
 def send_report(reports):
     if reports:
-        message = "\n".join(reports)
+        message = "\n\n<hr>\n\n".join(reports)
     else:
         message = "No nightly builds to report."
 
-    message += "\n\n-- \nSent by https://github.com/tomprince/thunderbird-pulse\n"
+    message += "\n\n-- "
+    message += "\nSent by https://github.com/tomprince/thunderbird-pulse\n"
 
     requests.post(
-        "https://api.mailgun.net/v3/{}/messages".format(environ.get("MAILGUN_DOMAIN")),
+        "https://api.mailgun.net/v3/{}/messages".format(
+            environ.get("MAILGUN_DOMAIN")),
         auth=("api", environ.get("MAILGUN_APIKEY")),
         data={"from": environ.get("MAILGUN_LIST"),
               "to": [environ.get("MAILGUN_LIST")],
