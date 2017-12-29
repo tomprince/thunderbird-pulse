@@ -89,6 +89,7 @@ if __name__ == "__main__":
     builds = process_messages(pulse.drain())
     reports = generate_report(builds)
     send_report(reports)
+    pulse.ack()
     pulse.disconnect()
 
     exit(0)
