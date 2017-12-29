@@ -35,6 +35,7 @@ def generate_report(builds):
     build_reports = []
     for buildid, data in builds.items():
         lines = []
+        lines.append("<div>")
         lines.append('<p>BuildID: {}\n'.format(buildid))
         for status in ('failures', 'warnings', 'successes'):
             lines.append('<p>{}:\n'.format(status.title()))
@@ -45,6 +46,7 @@ def generate_report(builds):
                         '<a href="{url}">{platform}</a>'.format(
                             platform=platform, url=url))
                 lines.append("{}({})".format(locale, ", ".join(results)))
+        lines.append("</div>")
 
         build_reports.append("\n".join(lines))
 
@@ -69,7 +71,7 @@ def send_report(reports):
               "subject": "Nightly L10N Repack {}".format(
                   date.today().isoformat(),
               ),
-              "text": message})
+              "html": message})
 
 
 if __name__ == "__main__":
