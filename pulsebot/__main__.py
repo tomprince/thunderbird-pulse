@@ -57,7 +57,7 @@ def send_report(reports):
     if reports:
         message = "\n\n<hr>\n\n".join(reports)
     else:
-        message = "No nightly builds to report."
+        message = "<div>No nightly builds to report.</div>"
 
     message += "\n\n-- "
     message += "\nSent by https://github.com/tomprince/thunderbird-pulse\n"
